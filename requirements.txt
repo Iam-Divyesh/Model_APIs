@@ -1,0 +1,18 @@
+# Core Web App
+streamlit
+python-dotenv
+
+# NLP and ML
+openai>=1.0.0
+scikit-learn
+numpy
+
+# API Calls
+requests
+
+# Optional (if you want to do any further text processing)
+# pandas
+
+
+transformers
+torch
