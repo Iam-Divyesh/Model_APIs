@@ -39,6 +39,38 @@ except Exception as e:
 # Define major Indian cities
 MAJOR_INDIAN_CITIES = ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Pune", "Surat", "Ahmedabad"]
 
+# Define Indian states and UTs for validation
+INDIAN_STATES_AND_UTS = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", "Haryana",
+    "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+    "Mizoram", "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry"
+]
+
+def is_location_in_india(location_name):
+    """Check if a location is likely in India."""
+    if not isinstance(location_name, str):
+        return False
+    
+    location_lower = location_name.lower()
+
+    # Check against major cities
+    if location_lower in [city.lower() for city in MAJOR_INDIAN_CITIES]:
+        return True
+    
+    # Check against states and UTs
+    if location_lower in [state.lower() for state in INDIAN_STATES_AND_UTS]:
+        return True
+
+    # A simple check for common non-Indian locations to exclude
+    non_indian_cities = ["london", "new york", "san francisco", "dubai", "singapore", "toronto"]
+    if location_lower in non_indian_cities:
+        return False
+        
+    # Assume it might be an Indian city if not explicitly non-Indian.
+    return True
+
 def enhance_recruiter_query(query):
     """Enhance and improve recruiter queries using Azure OpenAI"""
     if not client:
@@ -112,7 +144,7 @@ def parse_recruiter_query(query):
           DO NOT include phrases like "looking for", "need a", "hiring", etc.
         - skills: Array of required technical skills mentioned (e.g., ["Python", "Django", "SQL"])
         - experience: Required experience in years (numeric value or range)
-        - location: Array of city names if multiple cities are mentioned, or single city name as string if only one city is mentioned.
+        - location: Location of the candidate. **You must strictly extract locations within India only.** If the query mentions a non-Indian location, set this field to null. If no location is mentioned, set it to null.
         - work_preference: Work mode preference - one of: "remote", "onsite", "hybrid", null
         - job_type: Employment type - one of: "full-time", "part-time", "contract", "internship", null
 
@@ -195,20 +227,25 @@ def fetch_linkedin_profiles(parsed_data, page_number=1, results_per_page=10):
     if job_title:
         search_query += f'"{job_title}" '
 
-    # Handle location
+    # --- START OF MODIFICATION ---
+    # Enforce "India only" location rule
+    indian_locations = []
     if location:
-        if isinstance(location, list) and len(location) > 0:
-            for city in location:
-                if city and city.strip():
-                    search_query += f'"{city.strip()}" '
-        elif isinstance(location, str) and location.strip():
-            search_query += f'"{location.strip()}" '
-        else:
-            for city in MAJOR_INDIAN_CITIES[:3]:
-                search_query += f'"{city}" '
+        if isinstance(location, list):
+            # Filter the list to include only Indian locations
+            indian_locations = [loc for loc in location if is_location_in_india(loc)]
+        elif isinstance(location, str) and is_location_in_india(location):
+            # If it's a single Indian location string
+            indian_locations.append(location)
+
+    # Build the location part of the query
+    if indian_locations:
+        for loc in indian_locations:
+            search_query += f'"{loc.strip()}" '
     else:
-        for city in MAJOR_INDIAN_CITIES[:3]:
-            search_query += f'"{city}" '
+        # If no valid Indian location is provided, default to a general India search
+        search_query += '"India" '
+    # --- END OF MODIFICATION ---
 
     # Add top 3 skills
     if skills and len(skills) > 0:
@@ -402,6 +439,103 @@ def extract_experience_from_snippet(snippet):
 
     return None
 
+def extract_location_from_snippet(snippet, search_locations):
+    """Extract location information from profile snippet"""
+    if not snippet:
+        return None
+
+    snippet_lower = snippet.lower()
+
+    # Check for searched locations first (exact match)
+    if search_locations:
+        locations_to_check = []
+        if isinstance(search_locations, list):
+            locations_to_check = search_locations
+        else:
+            locations_to_check = [search_locations]
+
+        for location in locations_to_check:
+            if location and location.lower() in snippet_lower:
+                return location
+
+    # Extended comprehensive list of Indian cities from main.py
+    extended_cities = MAJOR_INDIAN_CITIES + [
+        "Gurgaon", "Gurugram", "Noida", "Kochi", "Cochin", "Kolkata", "Indore", 
+        "Jaipur", "Chandigarh", "Coimbatore", "Vadodara", "Mysore", "Nagpur",
+        "Visakhapatnam", "Bhubaneswar", "Lucknow", "Kanpur", "Patna", "Goa",
+        "Trivandrum", "Thiruvananthapuram", "Madurai", "Nashik", "Rajkot",
+        "Faridabad", "Ghaziabad", "Agra", "Ludhiana", "Kanpur", "Varanasi",
+        "Meerut", "Rajkot", "Kalyan-Dombivali", "Vasai-Virar", "Amritsar",
+        "Allahabad", "Howrah", "Ranchi", "Jabalpur", "Gwalior", "Vijayawada",
+        "Jodhpur", "Madurai", "Raipur", "Kota", "Loni", "Siliguri", "Jhansi",
+        "Ulhasnagar", "Jammu", "Sangli-Miraj & Kupwad", "Mangalore", "Erode",
+        "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya", "Jalgaon",
+        "Udaipur", "Maheshtala", "Tirupur", "Davanagere", "Kozhikode", "Akola",
+        "Kurnool", "Bokaro", "Rajahmundry", "Ballari", "Tirupati", "Bhilai",
+        "Patiala", "Bidhannagar", "Panipat", "Durgapur", "Asansol", "Nanded",
+        "Kolhapur", "Ajmer", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
+        "Jhansi", "Ulhasnagar", "Nellore", "Jammu", "Sangli-Miraj & Kupwad",
+        "Islampur", "Kadapa", "Cuttack", "Firozabad", "Kochi", "Bhavnagar",
+        "Dehradun", "Durgapur", "Asansol", "Rourkela", "Nanded", "Kolhapur",
+        "Ajmer", "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri"
+    ]
+
+    # Check for cities in snippet (exact match first)
+    for city in extended_cities:
+        if city.lower() in snippet_lower:
+            return city
+
+    # Enhanced location patterns from main.py
+    location_patterns = [
+        r'(?:based in|located in|from|working in|living in|residing in|situated in)\s*([a-zA-Z\s,]{2,30})(?:\s|,|\.|\||$)',
+        r'([a-zA-Z\s]{2,25}),?\s*india',
+        r'([a-zA-Z\s]{2,20})\s*(?:area|region|zone|district)',
+        r'([a-zA-Z\s]{2,20})\s*(?:metropolitan|metro|city)',
+        r'([a-zA-Z\s]{2,20})\s*(?:state|province)',
+        r'(?:at|in)\s*([a-zA-Z\s]{2,25})(?:\s*,|\s*-|\s*\||\s*\.)',
+        r'([a-zA-Z\s]{2,20})\s*(?:office|location|branch|center|centre)',
+        r'(?:currently in|working at|employed in|job in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)',
+        r'([a-zA-Z\s]{2,25})\s*(?:based|located)',
+        r'(?:lives in|living in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)'
+    ]
+
+    for pattern in location_patterns:
+        matches = re.findall(pattern, snippet_lower, re.IGNORECASE)
+        if matches:
+            for match in matches:
+                if isinstance(match, tuple):
+                    match = match[0] if match[0] else (match[1] if len(match) > 1 else "")
+
+                location = match.strip().title()
+
+                # Enhanced filtering of non-location words
+                non_locations = [
+                    'linkedin', 'profile', 'experience', 'years', 'company', 'limited', 
+                    'pvt', 'private', 'technologies', 'solutions', 'services', 'systems',
+                    'software', 'developer', 'engineer', 'manager', 'specialist', 'consultant',
+                    'analyst', 'architect', 'lead', 'senior', 'junior', 'associate',
+                    'programming', 'development', 'technical', 'professional', 'expert',
+                    'skilled', 'experienced', 'passionate', 'dedicated', 'motivated',
+                    'seeking', 'looking', 'available', 'open', 'interested', 'explore',
+                    'opportunities', 'career', 'growth', 'learning', 'knowledge',
+                    'industry', 'domain', 'field', 'sector', 'business', 'corporate',
+                    'team', 'projects', 'work', 'working', 'job', 'role', 'position'
+                ]
+
+                # Additional checks for valid location
+                if (3 <= len(location) <= 25 and 
+                    not any(word in location.lower() for word in non_locations) and
+                    not location.lower().startswith(('the ', 'and ', 'or ', 'with ', 'for ')) and
+                    not location.isnumeric() and
+                    ' ' in location or location in extended_cities):
+
+                    # Check if it's a real Indian city (even if not in our list)
+                    words = location.split()
+                    if len(words) <= 3:  # Reasonable city name length
+                        return location
+
+    return None
+
 def generate_candidate_message(candidate_name, parsed_data, candidate_experience=None, candidate_location=None):
     """Generate a personalized message for each candidate"""
     job_title = parsed_data.get("job_title", "a professional")
@@ -457,102 +591,22 @@ def generate_candidate_message(candidate_name, parsed_data, candidate_experience
 
     return message
 
-def extract_location_from_snippet(snippet, search_locations):
-    """Extract location information from profile snippet"""
-    if not snippet:
-        return None
+def validate_query(query):
+    """Validates the user query against a set of rules."""
+    if not query or not query.strip():
+        return False, "Insufficient query details to perform a search.", 400
 
-    snippet_lower = snippet.lower()
+    query_lower = query.lower()
 
-    # Check for searched locations first (exact match)
-    if search_locations:
-        locations_to_check = []
-        if isinstance(search_locations, list):
-            locations_to_check = search_locations
-        else:
-            locations_to_check = [search_locations]
+    inappropriate_keywords = ["sex", "nude", "porn", "dating", "fun", "joke", "timepass", "friendship", "random talk"]
+    if any(keyword in query_lower for keyword in inappropriate_keywords):
+        return False, "Invalid query. Please provide a job-related query.", 400
 
-        for location in locations_to_check:
-            if location and location.lower() in snippet_lower:
-                return location
-
-    # Extended comprehensive list of Indian cities from main.py
-    extended_cities = MAJOR_INDIAN_CITIES + [
-        "Gurgaon", "Gurugram", "Noida", "Kochi", "Cochin", "Kolkata", "Indore", 
-        "Jaipur", "Chandigarh", "Coimbatore", "Vadodara", "Mysore", "Nagpur",
-        "Visakhapatnam", "Bhubaneswar", "Lucknow", "Kanpur", "Patna", "Goa",
-        "Trivandrum", "Thiruvananthapuram", "Madurai", "Nashik", "Rajkot",
-        "Faridabad", "Ghaziabad", "Agra", "Ludhiana", "Kanpur", "Varanasi",
-        "Meerut", "Rajkot", "Kalyan-Dombivali", "Vasai-Virar", "Amritsar",
-        "Allahabad", "Howrah", "Ranchi", "Jabalpur", "Gwalior", "Vijayawada",
-        "Jodhpur", "Madurai", "Raipur", "Kota", "Loni", "Siliguri", "Jhansi",
-        "Ulhasnagar", "Jammu", "Sangli-Miraj & Kupwad", "Mangalore", "Erode",
-        "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya", "Jalgaon",
-        "Udaipur", "Maheshtala", "Tirupur", "Davanagere", "Kozhikode", "Akola",
-        "Kurnool", "Bokaro", "Rajahmundry", "Ballari", "Tirupati", "Bhilai",
-        "Patiala", "Bidhannagar", "Panipat", "Durgapur", "Asansol", "Nanded",
-        "Kolhapur", "Ajmer", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
-        "Jhansi", "Ulhasnagar", "Nellore", "Jammu", "Sangli-Miraj & Kupwad",
-        "Islampur", "Kadapa", "Cuttack", "Firozabad", "Kochi", "Bhavnagar",
-        "Dehradun", "Durgapur", "Asansol", "Rourkela", "Nanded", "Kolhapur",
-        "Ajmer", "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri"
-    ]
-
-    # Check for cities in snippet (exact match first)
-    for city in extended_cities:
-        if city.lower() in snippet_lower:
-            return city
-
-    # Enhanced location patterns from main.py
-    location_patterns = [
-        r'(?:based in|located in|from|working in|living in|residing in|situated in)\s*([a-zA-Z\s,]{2,30})(?:\s|,|\.|\||$)',
-        r'([a-zA-Z\s]{2,25}),?\s*india',
-        r'([a-zA-Z\s]{2,20})\s*(?:area|region|zone|district)',
-        r'([a-zA-Z\s]{2,20})\s*(?:metropolitan|metro|city)',
-        r'([a-zA-Z\s]{2,20})\s*(?:state|province)',
-        r'(?:at|in)\s*([a-zA-Z\s]{2,25})(?:\s*,|\s*-|\s*\||\s*\.)',
-        r'([a-zA-Z\s]{3,20})\s*(?:office|location|branch|center|centre)',
-        r'(?:currently in|working at|employed in|job in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)',
-        r'([a-zA-Z\s]{2,25})\s*(?:based|located)',
-        r'(?:lives in|living in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)'
-    ]
-
-    for pattern in location_patterns:
-        matches = re.findall(pattern, snippet_lower, re.IGNORECASE)
-        if matches:
-            for match in matches:
-                if isinstance(match, tuple):
-                    match = match[0] if match[0] else (match[1] if len(match) > 1 else "")
-
-                location = match.strip().title()
-
-                # Enhanced filtering of non-location words
-                non_locations = [
-                    'linkedin', 'profile', 'experience', 'years', 'company', 'limited', 
-                    'pvt', 'private', 'technologies', 'solutions', 'services', 'systems',
-                    'software', 'developer', 'engineer', 'manager', 'specialist', 'consultant',
-                    'analyst', 'architect', 'lead', 'senior', 'junior', 'associate',
-                    'programming', 'development', 'technical', 'professional', 'expert',
-                    'skilled', 'experienced', 'passionate', 'dedicated', 'motivated',
-                    'seeking', 'looking', 'available', 'open', 'interested', 'explore',
-                    'opportunities', 'career', 'growth', 'learning', 'knowledge',
-                    'industry', 'domain', 'field', 'sector', 'business', 'corporate',
-                    'team', 'projects', 'work', 'working', 'job', 'role', 'position'
-                ]
-
-                # Additional checks for valid location
-                if (3 <= len(location) <= 25 and 
-                    not any(word in location.lower() for word in non_locations) and
-                    not location.lower().startswith(('the ', 'and ', 'or ', 'with ', 'for ')) and
-                    not location.isnumeric() and
-                    ' ' in location or location in extended_cities):
-
-                    # Check if it's a real Indian city (even if not in our list)
-                    words = location.split()
-                    if len(words) <= 3:  # Reasonable city name length
-                        return location
-
-    return None
+    gibberish_keywords = ["blah blah blah", "asdf", "lorem ipsum"]
+    if any(keyword in query_lower for keyword in gibberish_keywords):
+        return False, "Invalid query. Please provide a job-related query.", 400
+    
+    return True, "", 200
 
 # Routes
 @app.route('/')
@@ -564,11 +618,35 @@ def parse_prompt():
     data = request.get_json()
     query = data.get('query', '')
 
-    if not query.strip():
-        return jsonify({"error": "Query is required"}), 400
+    is_valid, msg, code = validate_query(query)
+    if not is_valid:
+        return jsonify({"error": msg}), code
 
     parsed_data = parse_recruiter_query(query)
-    return jsonify(parsed_data)
+
+    if "error" in parsed_data:
+        return jsonify({"error": "Invalid query. Please provide a job-related query."}), 400
+
+    # Check for sufficient details
+    has_details = any([
+        parsed_data.get("job_title"),
+        parsed_data.get("skills"),
+        parsed_data.get("location"),
+        parsed_data.get("experience")
+    ])
+
+    if not has_details:
+        return jsonify({"error": "Insufficient query details to perform a search."}), 400
+
+    # Format response to match user specification
+    response = {
+        "job_title": parsed_data.get("job_title"),
+        "skills": parsed_data.get("skills"),
+        "location": parsed_data.get("location"),
+        "experience": parsed_data.get("experience")
+    }
+
+    return jsonify(response)
 
 # Endpoint 1: Query Enhancement
 @app.route('/enhance', methods=['POST'])
@@ -590,7 +668,6 @@ def enhance_query():
 
     return jsonify(response)
 
-
 # Endpoint 2: Candidate Search
 @app.route('/search', methods=['POST'])
 def search_candidates():
@@ -598,17 +675,27 @@ def search_candidates():
     query = data.get('query', '')
     page = data.get('page', 1)
 
-    if not query.strip():
-        return jsonify({"error": "Query is required"}), 400
+    is_valid, msg, code = validate_query(query)
+    if not is_valid:
+        return jsonify({"error": msg}), code
 
     # Directly parse the provided query (enhanced or not)
     parsed_data = parse_recruiter_query(query)
 
     if "error" in parsed_data:
-        return jsonify(parsed_data), 400
+        return jsonify({"error": "Invalid query. Please provide a job-related query."}), 400
+
+    # Rule: Check if the query has enough detail (at least a job title or skills)
+    is_sufficient = parsed_data.get("job_title") or parsed_data.get("skills") or parsed_data.get("location") or parsed_data.get("experience")
+    if not is_sufficient:
+        return jsonify({"error": "Insufficient query details to perform a search."}), 400
 
     # Fetch candidates
     results = fetch_linkedin_profiles(parsed_data, page)
+
+    # Rule: Handle no results found in India
+    if not results:
+        return jsonify({"message": "No candidates found matching the criteria in India."}), 200
 
     # Score and sort profiles
     candidates = []
