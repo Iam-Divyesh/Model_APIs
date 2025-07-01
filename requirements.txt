@@ -1,4 +1,6 @@
 flask
-flask-swagger-uirequests
+flask-swagger-ui
+requests
 python-dotenv
 openai
+gunicorn
