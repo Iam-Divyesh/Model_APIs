@@ -458,82 +458,8 @@ def extract_location_from_snippet(snippet, search_locations):
             if location and location.lower() in snippet_lower:
                 return location
 
-    # Extended comprehensive list of Indian cities from main.py
-    extended_cities = MAJOR_INDIAN_CITIES + [
-        "Gurgaon", "Gurugram", "Noida", "Kochi", "Cochin", "Kolkata", "Indore", 
-        "Jaipur", "Chandigarh", "Coimbatore", "Vadodara", "Mysore", "Nagpur",
-        "Visakhapatnam", "Bhubaneswar", "Lucknow", "Kanpur", "Patna", "Goa",
-        "Trivandrum", "Thiruvananthapuram", "Madurai", "Nashik", "Rajkot",
-        "Faridabad", "Ghaziabad", "Agra", "Ludhiana", "Kanpur", "Varanasi",
-        "Meerut", "Rajkot", "Kalyan-Dombivali", "Vasai-Virar", "Amritsar",
-        "Allahabad", "Howrah", "Ranchi", "Jabalpur", "Gwalior", "Vijayawada",
-        "Jodhpur", "Madurai", "Raipur", "Kota", "Loni", "Siliguri", "Jhansi",
-        "Ulhasnagar", "Jammu", "Sangli-Miraj & Kupwad", "Mangalore", "Erode",
-        "Belgaum", "Ambattur", "Tirunelveli", "Malegaon", "Gaya", "Jalgaon",
-        "Udaipur", "Maheshtala", "Tirupur", "Davanagere", "Kozhikode", "Akola",
-        "Kurnool", "Bokaro", "Rajahmundry", "Ballari", "Tirupati", "Bhilai",
-        "Patiala", "Bidhannagar", "Panipat", "Durgapur", "Asansol", "Nanded",
-        "Kolhapur", "Ajmer", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri",
-        "Jhansi", "Ulhasnagar", "Nellore", "Jammu", "Sangli-Miraj & Kupwad",
-        "Islampur", "Kadapa", "Cuttack", "Firozabad", "Kochi", "Bhavnagar",
-        "Dehradun", "Durgapur", "Asansol", "Rourkela", "Nanded", "Kolhapur",
-        "Ajmer", "Akola", "Gulbarga", "Jamnagar", "Ujjain", "Loni", "Siliguri"
-    ]
-
-    # Check for cities in snippet (exact match first)
-    for city in extended_cities:
-        if city.lower() in snippet_lower:
-            return city
-
-    # Enhanced location patterns from main.py
-    location_patterns = [
-        r'(?:based in|located in|from|working in|living in|residing in|situated in)\s*([a-zA-Z\s,]{2,30})(?:\s|,|\.|\||$)',
-        r'([a-zA-Z\s]{2,25}),?\s*india',
-        r'([a-zA-Z\s]{2,20})\s*(?:area|region|zone|district)',
-        r'([a-zA-Z\s]{2,20})\s*(?:metropolitan|metro|city)',
-        r'([a-zA-Z\s]{2,20})\s*(?:state|province)',
-        r'(?:at|in)\s*([a-zA-Z\s]{2,25})(?:\s*,|\s*-|\s*\||\s*\.)',
-        r'([a-zA-Z\s]{2,20})\s*(?:office|location|branch|center|centre)',
-        r'(?:currently in|working at|employed in|job in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)',
-        r'([a-zA-Z\s]{2,25})\s*(?:based|located)',
-        r'(?:lives in|living in)\s*([a-zA-Z\s]{2,25})(?:\s|,|\.|\||$)'
-    ]
-
-    for pattern in location_patterns:
-        matches = re.findall(pattern, snippet_lower, re.IGNORECASE)
-        if matches:
-            for match in matches:
-                if isinstance(match, tuple):
-                    match = match[0] if match[0] else (match[1] if len(match) > 1 else "")
-
-                location = match.strip().title()
-
-                # Enhanced filtering of non-location words
-                non_locations = [
-                    'linkedin', 'profile', 'experience', 'years', 'company', 'limited', 
-                    'pvt', 'private', 'technologies', 'solutions', 'services', 'systems',
-                    'software', 'developer', 'engineer', 'manager', 'specialist', 'consultant',
-                    'analyst', 'architect', 'lead', 'senior', 'junior', 'associate',
-                    'programming', 'development', 'technical', 'professional', 'expert',
-                    'skilled', 'experienced', 'passionate', 'dedicated', 'motivated',
-                    'seeking', 'looking', 'available', 'open', 'interested', 'explore',
-                    'opportunities', 'career', 'growth', 'learning', 'knowledge',
-                    'industry', 'domain', 'field', 'sector', 'business', 'corporate',
-                    'team', 'projects', 'work', 'working', 'job', 'role', 'position'
-                ]
-
-                # Additional checks for valid location
-                if (3 <= len(location) <= 25 and 
-                    not any(word in location.lower() for word in non_locations) and
-                    not location.lower().startswith(('the ', 'and ', 'or ', 'with ', 'for ')) and
-                    not location.isnumeric() and
-                    ' ' in location or location in extended_cities):
-
-                    # Check if it's a real Indian city (even if not in our list)
-                    words = location.split()
-                    if len(words) <= 3:  # Reasonable city name length
-                        return location
-
+    # If no search locations provided or no match found, return None
+    # This prevents extracting irrelevant locations from "at", "from", "in" keywords
     return None
 
 def generate_candidate_message(candidate_name, parsed_data, candidate_experience=None, candidate_location=None):
